@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Aviron — Join Support Call</title>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg:        #ffffff;
+    --surface:   #f8f9fb;
+    --border:    #e2e5ea;
+    --muted:     #c4c9d4;
+    --text:      #111418;
+    --sub:       #6b7280;
+    --accent:    #111418;
+    --green:     #16a34a;
+    --red:       #dc2626;
+    --support:   #3b82f6;
+    --customer:  #ec4899;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ── Join screen ── */
+  #join-screen {
+    flex: 1;
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    gap: 32px;
+  }
+
+  .brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .brand-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: .02em;
+  }
+
+  .brand-logo svg { width: 32px; height: 32px; }
+
+  .brand-sub {
+    font-size: 13px;
+    color: var(--sub);
+  }
+
+  .join-card {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    box-shadow: 0 4px 24px rgba(0,0,0,.06);
+  }
+
+  .call-icon {
+    width: 56px; height: 56px;
+    background: var(--text);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .call-icon svg { width: 24px; height: 24px; color: #fff; }
+
+  .join-title {
+    font-size: 18px;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  .join-sub {
+    font-size: 13px;
+    color: var(--sub);
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  .join-name-wrap {
+    width: 100%;
+  }
+
+  .join-name-wrap label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--sub);
+    margin-bottom: 6px;
+  }
+
+  input[type="text"] {
+    width: 100%;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 11px 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    outline: none;
+    transition: border-color .15s;
+  }
+
+  input[type="text"]:focus { border-color: var(--accent); }
+
+  .join-btn {
+    width: 100%;
+    padding: 13px;
+    background: var(--text);
+    color: #fff;
+    border: none;
+    border-radius: 9px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background .15s;
+  }
+
+  .join-btn:hover { background: #2d3039; }
+  .join-btn:disabled { background: var(--muted); cursor: not-allowed; }
+
+  .privacy-note {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.5;
+  }
+
+  /* ── In-call screen ── */
+  #call-screen {
+    display: none;
+    width: 100%;
+    height: 100vh;
+    flex-direction: column;
+    background: #000;
+  }
+
+  #call-screen.active {
+    display: flex;
+  }
+
+  /* Video stage */
+  .video-stage {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #local-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    /* No mirror - customer sees same view as agent (camera points at equipment) */
+  }
+
+  #frozen-frame {
+    display: none;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: absolute;
+    inset: 0;
+  }
+
+  #draw-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+    touch-action: none;
+    z-index: 5;
+    display: none;
+  }
+
+  #draw-canvas.active { display: block; }
+
+  /* Frozen badge */
+  .frozen-badge {
+    display: none;
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: rgba(245,158,11,.9);
+    color: #000;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    border-radius: 20px;
+    z-index: 7;
+  }
+
+  .frozen-badge.visible { display: block; }
+
+  /* Connecting overlay */
+  .connecting-overlay {
+    position: absolute;
+    inset: 0;
+    background: #0d0f12;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    z-index: 10;
+    color: #7c8290;
+  }
+
+  .connecting-overlay.hidden { display: none; }
+
+  .spinner {
+    width: 32px; height: 32px;
+    border: 2px solid #23262c;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Controls */
+  .call-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 20px 24px 32px;
+    background: #0d0f12;
+  }
+
+  .ctrl-btn {
+    width: 54px; height: 54px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all .15s;
+    background: #1c1f25;
+    color: #9ca3af;
+  }
+
+  .ctrl-btn svg { width: 20px; height: 20px; }
+  .ctrl-btn:hover { background: #252830; color: #fff; }
+  .ctrl-btn.active { background: #1e3a5f; color: #3b82f6; }
+  .ctrl-btn.draw-active { background: #4a1340; color: #ec4899; }
+  .ctrl-btn.end { background: #dc2626; color: #fff; width: 60px; height: 60px; }
+  .ctrl-btn.end:hover { background: #b91c1c; }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    bottom: 110px;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: rgba(255,255,255,.95);
+    color: #111;
+    border-radius: 20px;
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    opacity: 0;
+    transition: all .25s;
+    z-index: 100;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<!-- Join screen -->
+<div id="join-screen">
+  <div class="brand">
+    <div class="brand-logo">
+      <img src="data:image/png;base64,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" style="width:32px;height:32px;object-fit:contain;" />
+      AVIRON
+    </div>
+    <div class="brand-sub">Support Video Call</div>
+  </div>
+
+  <div class="join-card">
+    <div class="call-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+        <path d="M15 10l4.553-2.069A1 1 0 0121 8.883v6.234a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
+      </svg>
+    </div>
+    <div class="join-title">Your support agent is ready</div>
+    <div class="join-sub">You'll be connected with an Aviron support specialist who will help troubleshoot your equipment.</div>
+    <div class="join-name-wrap">
+      <label>Your name (optional)</label>
+      <input type="text" id="customer-name" placeholder="e.g. Jane" />
+    </div>
+    <button class="join-btn" id="join-btn" onclick="joinCall()">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path d="M15 10l4.553-2.069A1 1 0 0121 8.883v6.234a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
+      </svg>
+      Join Video Call
+    </button>
+    <div class="privacy-note">Your camera and microphone will be requested.<br>Your support agent will see exactly what your camera is pointing at.</div>
+  </div>
+</div>
+
+<!-- In-call screen -->
+<div id="call-screen">
+  <div class="video-stage" id="video-stage">
+    <video id="local-video" autoplay playsinline muted></video>
+    <img id="frozen-frame" />
+    <canvas id="draw-canvas"></canvas>
+    <div class="frozen-badge" id="frozen-badge">⏸ Frame Frozen</div>
+    <div class="connecting-overlay" id="connecting-overlay">
+      <div class="spinner"></div>
+      <span style="font-size:13px;">Connecting to support…</span>
+    </div>
+  </div>
+
+  <div class="call-controls">
+    <button class="ctrl-btn" id="btn-mute" onclick="toggleMute()" title="Mute">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
+    </button>
+
+    <button class="ctrl-btn end" onclick="endCall()" title="End call">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M16.5 13.5c-1 1-2.5 1.5-4.5 1.5s-3.5-.5-4.5-1.5l-2-2c-.5-.5-.5-1.5 0-2l1.5-1.5c.5-.5 1.5-.5 2 0l1 1c.5.5 1.5.5 2 0l2-2c.5-.5.5-1.5 0-2L13 3.5c-.5-.5-1.5-.5-2 0-4 4-4 10 0 14 .5.5 1.5.5 2 0l1.5-1.5c.5-.5.5-1.5 0-2l-2-2z" transform="rotate(135 12 12)"/></svg>
+    </button>
+    <button class="ctrl-btn" id="btn-draw" onclick="toggleDraw()" title="Annotate">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M15.232 5.232l3.536 3.536M9 11l6.586-6.586a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-1.414.586H8v-2.414A2 2 0 019 11z"/><path d="M3 21h18"/></svg>
+    </button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────
+let peer = null;
+let localStream = null;
+let activeCall = null;
+let activeConn = null;
+let isMuted = false;
+let isDrawing = false;
+let isFrozen = false;
+let drawing = false;
+let lastX = 0, lastY = 0;
+const CUSTOMER_COLOR = '#ec4899';
+
+// Get room ID from URL
+const params = new URLSearchParams(window.location.search);
+const roomId = params.get('room');
+
+if (!roomId) {
+  document.querySelector('.join-sub').textContent = 'Invalid invite link. Please contact your support agent for a new link.';
+  document.getElementById('join-btn').disabled = true;
+}
+
+// ── Join ──────────────────────────────────────────────────────
+async function joinCall() {
+  const btn = document.getElementById('join-btn');
+  btn.disabled = true;
+  btn.textContent = 'Connecting…';
+
+  // Get local media
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    document.getElementById('local-video').srcObject = localStream;
+  } catch (e) {
+    toast('Camera/mic access denied. Please allow access and retry.');
+    btn.disabled = false;
+    btn.textContent = 'Join Video Call';
+    return;
+  }
+
+  // Switch to call screen
+  document.getElementById('join-screen').style.display = 'none';
+  document.getElementById('call-screen').classList.add('active');
+
+  // Init peer with random ID
+  const myId = 'cust-' + Math.random().toString(36).slice(2, 9);
+  peer = new Peer(myId, {
+    host: '0.peerjs.com',
+    port: 443,
+    path: '/',
+    secure: true,
+    debug: 0,
+    config: {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
+    }
+  });
+
+  peer.on('open', () => {
+    // Open data channel to support
+    activeConn = peer.connect(roomId);
+    activeConn.on('open', () => {
+      console.log('Data channel open');
+    });
+    activeConn.on('data', handleRemoteData);
+
+    // Call support peer
+    const call = peer.call(roomId, localStream);
+    activeCall = call;
+
+    call.on('stream', remoteStream => {
+      // Support's video — we show as thumbnail
+      // Agent sends audio only - no remote video to display
+      document.getElementById('connecting-overlay').classList.add('hidden');
+      toast('Connected to support');
+    });
+
+    call.on('close', () => {
+      toast('Call ended by support agent');
+      setTimeout(() => location.reload(), 2500);
+    });
+  });
+
+  peer.on('error', err => {
+    toast('Connection failed: ' + err.type);
+    console.error(err);
+  });
+}
+
+// ── Controls ───────────────────────────────────────────────────
+function toggleMute() {
+  if (!localStream) return;
+  isMuted = !isMuted;
+  localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
+  document.getElementById('btn-mute').classList.toggle('active', isMuted);
+}
+
+
+
+function endCall() {
+  if (activeCall) activeCall.close();
+  if (activeConn) activeConn.close();
+  if (localStream) localStream.getTracks().forEach(t => t.stop());
+  if (peer) peer.destroy();
+  toast('Call ended');
+  setTimeout(() => location.reload(), 1500);
+}
+
+function toggleDraw() {
+  isDrawing = !isDrawing;
+  const canvas = document.getElementById('draw-canvas');
+  const btn = document.getElementById('btn-draw');
+  canvas.classList.toggle('active', isDrawing);
+  btn.classList.toggle('draw-active', isDrawing);
+  if (isDrawing) resizeCanvas();
+}
+
+// ── Canvas ─────────────────────────────────────────────────────
+function resizeCanvas() {
+  const stage = document.getElementById('video-stage');
+  const canvas = document.getElementById('draw-canvas');
+  canvas.width = stage.clientWidth;
+  canvas.height = stage.clientHeight;
+}
+
+window.addEventListener('resize', () => { if (isDrawing) resizeCanvas(); });
+
+function getPos(e) {
+  const canvas = document.getElementById('draw-canvas');
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const src = e.touches ? e.touches[0] : e;
+  return {
+    x: (src.clientX - rect.left) * scaleX,
+    y: (src.clientY - rect.top) * scaleY
+  };
+}
+
+const drawCanvas = document.getElementById('draw-canvas');
+
+drawCanvas.addEventListener('pointerdown', e => {
+  if (!isDrawing) return;
+  drawing = true;
+  const p = getPos(e);
+  lastX = p.x; lastY = p.y;
+});
+
+drawCanvas.addEventListener('pointermove', e => {
+  if (!drawing || !isDrawing) return;
+  const p = getPos(e);
+  drawLine(drawCanvas.getContext('2d'), lastX, lastY, p.x, p.y, CUSTOMER_COLOR, 4);
+  sendData({ type: 'draw', x1: lastX / drawCanvas.width, y1: lastY / drawCanvas.height, x2: p.x / drawCanvas.width, y2: p.y / drawCanvas.height, color: CUSTOMER_COLOR, size: 4 });
+  lastX = p.x; lastY = p.y;
+});
+
+drawCanvas.addEventListener('pointerup', () => drawing = false);
+drawCanvas.addEventListener('pointerleave', () => drawing = false);
+
+function drawLine(ctx, x1, y1, x2, y2, color, size) {
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = size;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+}
+
+// ── Data channel ───────────────────────────────────────────────
+function sendData(payload) {
+  if (activeConn && activeConn.open) {
+    try { activeConn.send(JSON.stringify(payload)); } catch(e) {}
+  }
+}
+
+function handleRemoteData(raw) {
+  let msg;
+  try { msg = JSON.parse(raw); } catch(e) { return; }
+  const canvas = document.getElementById('draw-canvas');
+  const ctx = canvas.getContext('2d');
+
+  if (msg.type === 'draw') {
+    if (!canvas.classList.contains('active')) {
+      canvas.classList.add('active');
+      resizeCanvas();
+    }
+    drawLine(ctx, msg.x1 * canvas.width, msg.y1 * canvas.height, msg.x2 * canvas.width, msg.y2 * canvas.height, '#3b82f6', msg.size);
+  } else if (msg.type === 'clear') {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  } else if (msg.type === 'freeze') {
+    // Show frozen frame
+    isFrozen = true;
+    const frozenFrame = document.getElementById('frozen-frame');
+    frozenFrame.src = msg.frame;
+    frozenFrame.style.display = 'block';
+    document.getElementById('frozen-badge').classList.add('visible');
+    // Auto-enable drawing
+    if (!isDrawing) toggleDraw();
+    toast('Support has frozen the frame — you can draw on it');
+  } else if (msg.type === 'unfreeze') {
+    isFrozen = false;
+    document.getElementById('frozen-frame').style.display = 'none';
+    document.getElementById('frozen-badge').classList.remove('visible');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (isDrawing) toggleDraw();
+    toast('Live view resumed');
+  }
+}
+
+// ── Toast ──────────────────────────────────────────────────────
+function toast(msg, dur = 3000) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), dur);
+}
+</script>
+</body>
+</html>

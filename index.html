@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Aviron Support — Live Video</title>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg:        #0d0f12;
+    --surface:   #141619;
+    --border:    #23262c;
+    --muted:     #3a3e47;
+    --text:      #e8eaf0;
+    --sub:       #7c8290;
+    --accent:    #3b82f6;
+    --accent-dim:#1d3f73;
+    --green:     #22c55e;
+    --red:       #ef4444;
+    --support:   #3b82f6;
+    --customer:  #ec4899;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+  }
+
+  .logo svg { width: 28px; height: 28px; }
+
+  .logo-divider {
+    width: 1px; height: 20px;
+    background: var(--border);
+  }
+
+  .logo-sub {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--sub);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: var(--sub);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .4; }
+  }
+
+  /* ── Main layout ── */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 0;
+  }
+
+  /* ── Sidebar ── */
+  aside {
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    overflow-y: auto;
+  }
+
+  .section-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--sub);
+    margin-bottom: 10px;
+  }
+
+  /* New session card */
+  .new-session {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+
+  .input-group { margin-bottom: 14px; }
+  .input-group label {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--sub);
+    margin-bottom: 6px;
+  }
+
+  input[type="text"], input[type="tel"] {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 9px 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    transition: border-color .15s;
+  }
+
+  input[type="text"]:focus, input[type="tel"]:focus {
+    border-color: var(--accent);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 10px 18px;
+    border-radius: 7px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all .15s;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    width: 100%;
+  }
+
+  .btn-primary:hover { background: #2563eb; }
+  .btn-primary:disabled { background: var(--muted); cursor: not-allowed; }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--sub);
+    border: 1px solid var(--border);
+    width: 100%;
+    font-size: 12px;
+  }
+
+  .btn-ghost:hover { border-color: var(--muted); color: var(--text); }
+
+  /* Link display */
+  .link-box {
+    display: none;
+    margin-top: 14px;
+    background: var(--surface);
+    border: 1px solid var(--accent-dim);
+    border-radius: 7px;
+    padding: 10px 12px;
+  }
+
+  .link-box.visible { display: block; }
+
+  .link-url {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    word-break: break-all;
+    margin-bottom: 8px;
+  }
+
+  .link-actions { display: flex; gap: 6px; }
+
+  .btn-copy {
+    flex: 1;
+    padding: 7px 10px;
+    font-size: 11px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--sub);
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all .15s;
+  }
+
+  .btn-copy:hover { background: var(--border); color: var(--text); }
+  .btn-copy.copied { border-color: var(--green); color: var(--green); }
+
+  /* Sessions list */
+  .sessions-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .session-item {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: border-color .15s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .session-item:hover { border-color: var(--muted); }
+  .session-item.active { border-color: var(--accent); }
+
+  .session-info .name {
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 3px;
+  }
+
+  .session-info .meta {
+    font-size: 11px;
+    color: var(--sub);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .session-badge {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+  }
+
+  .session-badge.connected { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .session-badge.waiting { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; animation: pulse 2s infinite; }
+
+  /* ── Call area ── */
+  #call-area {
+    display: flex;
+    flex-direction: column;
+    background: #080a0d;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Empty state */
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    gap: 14px;
+    text-align: center;
+  }
+
+  .empty-icon {
+    width: 60px; height: 60px;
+    border: 2px solid var(--border);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .empty-state p {
+    font-size: 13px;
+    line-height: 1.6;
+    max-width: 260px;
+  }
+
+  /* Video container */
+  #video-container {
+    display: none;
+    flex: 1;
+    flex-direction: column;
+    position: relative;
+  }
+
+  #video-container.active { display: flex; }
+
+  /* Call header bar */
+  .call-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: rgba(20,22,25,.9);
+    border-bottom: 1px solid var(--border);
+    z-index: 10;
+  }
+
+  .call-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .call-timer {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--sub);
+  }
+
+  /* Video stage */
+  .video-stage {
+    flex: 1;
+    position: relative;
+    background: #000;
+  }
+
+  #remote-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  #frozen-frame {
+    display: none;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  #draw-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+    touch-action: none;
+    z-index: 5;
+    display: none;
+  }
+
+  #draw-canvas.active { display: block; }
+
+  /* Waiting overlay */
+  .waiting-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    z-index: 4;
+    gap: 16px;
+    color: var(--sub);
+  }
+
+  .waiting-overlay.hidden { display: none; }
+
+  .spinner {
+    width: 36px; height: 36px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Controls bar */
+  .controls-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    background: rgba(20,22,25,.97);
+    border-top: 1px solid var(--border);
+    gap: 12px;
+    z-index: 10;
+  }
+
+  .controls-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ctrl-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--sub);
+    cursor: pointer;
+    transition: all .15s;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .ctrl-btn svg { width: 18px; height: 18px; }
+  .ctrl-btn span { font-size: 10px; letter-spacing: .05em; text-transform: uppercase; }
+
+  .ctrl-btn:hover { border-color: var(--muted); color: var(--text); }
+  .ctrl-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  .ctrl-btn.danger { border-color: var(--red); color: var(--red); }
+  .ctrl-btn.danger:hover { background: rgba(239,68,68,.15); }
+  .ctrl-btn.frozen { border-color: #f59e0b; color: #f59e0b; }
+
+  .draw-color-indicator {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--support);
+    border: 2px solid var(--border);
+  }
+
+  /* Pen size slider */
+  .pen-size-wrap {
+    display: none;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .pen-size-wrap.visible { display: flex; }
+
+  .pen-size-wrap label {
+    font-size: 10px;
+    color: var(--sub);
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+
+  input[type=range] {
+    width: 80px;
+    accent-color: var(--support);
+  }
+
+  /* Annotation legend */
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 11px;
+    color: var(--sub);
+  }
+
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 13px;
+    color: var(--text);
+    opacity: 0;
+    transition: all .25s;
+    z-index: 100;
+    pointer-events: none;
+  }
+
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="20" r="19" stroke="#3b82f6" stroke-width="2"/>
+      <path d="M20 8L32 28H8L20 8Z" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="20" cy="20" r="3" fill="#3b82f6"/>
+    </svg>
+    <span>Aviron</span>
+    <div class="logo-divider"></div>
+    <span class="logo-sub">Support Console</span>
+  </div>
+  <div class="status-pill">
+    <div class="status-dot"></div>
+    CONNECTED TO PEER NETWORK
+  </div>
+</header>
+
+<main>
+  <!-- Sidebar -->
+  <aside>
+
+    <!-- New session -->
+    <div>
+      <div class="section-label">New Session</div>
+      <div class="new-session">
+        <div class="input-group">
+          <label>Agent Name</label>
+          <input type="text" id="agent-name" placeholder="Your name" value="" />
+        </div>
+        <div class="input-group">
+          <label>Customer Reference</label>
+          <input type="text" id="customer-ref" placeholder="e.g. Jane Smith / Ticket #1234" />
+        </div>
+        <button class="btn btn-primary" onclick="createSession()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M15 10l4.553-2.069A1 1 0 0121 8.883v6.234a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+          Create Session & Get Link
+        </button>
+
+        <div class="link-box" id="link-box">
+          <div class="link-url" id="link-display"></div>
+          <div class="link-actions">
+            <button class="btn-copy" id="btn-copy-link" onclick="copyLink()">Copy Link</button>
+            <button class="btn-copy" onclick="copySMS()">Copy SMS Text</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active sessions -->
+    <div>
+      <div class="section-label">Active Sessions</div>
+      <div class="sessions-list" id="sessions-list">
+        <div style="font-size:12px;color:var(--sub);text-align:center;padding:16px 0;">
+          No active sessions yet
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- Call area -->
+  <section id="call-area">
+
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M15 10l4.553-2.069A1 1 0 0121 8.883v6.234a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+      </div>
+      <p>Create a session and share the link with your customer to start a live call.</p>
+    </div>
+
+    <div id="video-container">
+      <!-- Call header -->
+      <div class="call-header">
+        <div class="call-title">
+          <div class="session-badge connected"></div>
+          <span id="call-title-name">Session</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;">
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--support)"></div> Support</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--customer)"></div> Customer</div>
+          </div>
+          <div class="call-timer" id="call-timer">00:00</div>
+        </div>
+      </div>
+
+      <!-- Video stage -->
+      <div class="video-stage" id="video-stage">
+        <video id="remote-video" autoplay playsinline></video>
+        <img id="frozen-frame" />
+        <canvas id="draw-canvas"></canvas>
+        <div class="waiting-overlay" id="waiting-overlay">
+          <div class="spinner"></div>
+          <span style="font-size:13px;">Waiting for customer to join…</span>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="controls-bar">
+        <div class="controls-group">
+
+          <button class="ctrl-btn" id="btn-mute" onclick="toggleMute()">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
+            <span id="mute-label">Mute</span>
+          </button>
+        </div>
+
+        <div class="controls-group">
+
+          <button class="ctrl-btn" id="btn-freeze" onclick="toggleFreeze()">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+            <span>Freeze</span>
+          </button>
+
+          <button class="ctrl-btn" id="btn-draw" onclick="toggleDraw()">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M15.232 5.232l3.536 3.536M9 11l6.586-6.586a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-1.414.586H8v-2.414A2 2 0 019 11z"/><path d="M3 21h18"/></svg>
+            <span>Annotate</span>
+          </button>
+
+          <div class="pen-size-wrap" id="pen-size-wrap">
+            <label>Size</label>
+            <input type="range" id="pen-size" min="2" max="20" value="4" />
+          </div>
+
+          <button class="ctrl-btn" onclick="clearCanvas()">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M8 7V4h8v3"/></svg>
+            <span>Clear</span>
+          </button>
+
+        </div>
+
+        <div class="controls-group">
+          <button class="ctrl-btn danger" onclick="endCall()">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M16.5 13.5c-1 1-2.5 1.5-4.5 1.5s-3.5-.5-4.5-1.5l-2-2c-.5-.5-.5-1.5 0-2l1.5-1.5c.5-.5 1.5-.5 2 0l1 1c.5.5 1.5.5 2 0l2-2c.5-.5.5-1.5 0-2L13 3.5c-.5-.5-1.5-.5-2 0-4 4-4 10 0 14 .5.5 1.5.5 2 0l1.5-1.5c.5-.5.5-1.5 0-2l-2-2z" transform="rotate(135 12 12)"/></svg>
+            <span>End Call</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────
+let peer = null;
+let localStream = null;
+let activeCall = null;
+let activeConn = null;   // data channel
+let isMuted = false;
+let isDrawing = false;
+let isFrozen = false;
+let timerInterval = null;
+let timerSeconds = 0;
+let sessions = [];
+let currentSessionId = null;
+
+// Drawing state
+let drawing = false;
+let lastX = 0, lastY = 0;
+const SUPPORT_COLOR = '#3b82f6';
+
+// ── PeerJS init ────────────────────────────────────────────────
+function initPeer(roomId) {
+  if (peer) { peer.destroy(); peer = null; }
+  peer = new Peer(roomId, {
+    host: '0.peerjs.com',
+    port: 443,
+    path: '/',
+    secure: true,
+    debug: 0,
+    config: {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:global.xirsys.com', username: 'free', credential: 'free' }
+      ]
+    }
+  });
+
+  peer.on('open', id => {
+    console.log('Peer open:', id);
+  });
+
+  peer.on('call', incomingCall => {
+    incomingCall.answer(localStream);
+    activeCall = incomingCall;
+    handleCallStream(incomingCall);
+    hideWaiting();
+    startTimer();
+    updateSessionBadge(roomId, 'connected');
+  });
+
+  peer.on('connection', conn => {
+    activeConn = conn;
+    conn.on('data', handleRemoteData);
+  });
+
+  peer.on('error', err => {
+    console.error('Peer error:', err);
+    toast('Connection error: ' + err.type);
+  });
+}
+
+function handleCallStream(call) {
+  call.on('stream', remoteStream => {
+    const rv = document.getElementById('remote-video');
+    rv.srcObject = remoteStream;
+    hideWaiting();
+  });
+  call.on('close', () => {
+    toast('Customer disconnected');
+    resetCallUI();
+  });
+}
+
+// ── Session creation ───────────────────────────────────────────
+async function createSession() {
+  const agentName = document.getElementById('agent-name').value.trim() || 'Support';
+  const ref = document.getElementById('customer-ref').value.trim();
+
+  // Generate a short readable room ID
+  const roomId = 'avr-' + Math.random().toString(36).slice(2, 9);
+
+  // Get local media
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+  } catch (e) {
+    toast('Microphone access denied — check browser permissions');
+    return;
+  }
+
+  // Init peer with this room ID
+  initPeer(roomId);
+
+  // Build the invite link (customer.html + room query param)
+  const base = window.location.href.replace('index.html', '').replace(/\/$/, '');
+  const link = `${base}/customer.html?room=${roomId}`;
+
+  // Show link
+  document.getElementById('link-display').textContent = link;
+  document.getElementById('link-box').classList.add('visible');
+
+  // Add to sessions list
+  const session = { id: roomId, ref: ref || 'Customer', agent: agentName, link, status: 'waiting' };
+  sessions.unshift(session);
+  renderSessions();
+  openSession(roomId);
+
+  currentSessionId = roomId;
+  toast('Session created — share the link with your customer');
+}
+
+function openSession(id) {
+  currentSessionId = id;
+  const s = sessions.find(x => x.id === id);
+  if (!s) return;
+
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('video-container').classList.add('active');
+  document.getElementById('call-title-name').textContent = s.ref;
+  document.getElementById('waiting-overlay').classList.remove('hidden');
+
+  renderSessions();
+}
+
+function renderSessions() {
+  const list = document.getElementById('sessions-list');
+  if (!sessions.length) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--sub);text-align:center;padding:16px 0;">No active sessions yet</div>';
+    return;
+  }
+  list.innerHTML = sessions.map(s => `
+    <div class="session-item ${s.id === currentSessionId ? 'active' : ''}" onclick="openSession('${s.id}')">
+      <div class="session-info">
+        <div class="name">${s.ref}</div>
+        <div class="meta">${s.agent} · ${s.id}</div>
+      </div>
+      <div class="session-badge ${s.status}" id="badge-${s.id}"></div>
+    </div>
+  `).join('');
+}
+
+function updateSessionBadge(id, status) {
+  const s = sessions.find(x => x.id === id);
+  if (s) s.status = status;
+  renderSessions();
+}
+
+// ── Link utils ─────────────────────────────────────────────────
+function copyLink() {
+  const link = document.getElementById('link-display').textContent;
+  navigator.clipboard.writeText(link);
+  const btn = document.getElementById('btn-copy-link');
+  btn.textContent = 'Copied!';
+  btn.classList.add('copied');
+  setTimeout(() => { btn.textContent = 'Copy Link'; btn.classList.remove('copied'); }, 2000);
+}
+
+function copySMS() {
+  const link = document.getElementById('link-display').textContent;
+  const text = `Aviron has invited you to a video conference: ${link}`;
+  navigator.clipboard.writeText(text);
+  toast('SMS text copied to clipboard');
+}
+
+// ── Call controls ──────────────────────────────────────────────
+function toggleMute() {
+  if (!localStream) return;
+  isMuted = !isMuted;
+  localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
+  const btn = document.getElementById('btn-mute');
+  const lbl = document.getElementById('mute-label');
+  btn.classList.toggle('active', isMuted);
+  lbl.textContent = isMuted ? 'Unmute' : 'Mute';
+}
+
+
+
+function toggleFreeze() {
+  const btn = document.getElementById('btn-freeze');
+  const remoteVideo = document.getElementById('remote-video');
+  const frozenFrame = document.getElementById('frozen-frame');
+  const canvas = document.getElementById('draw-canvas');
+
+  isFrozen = !isFrozen;
+  btn.classList.toggle('frozen', isFrozen);
+
+  if (isFrozen) {
+    // Capture current frame
+    const snap = document.createElement('canvas');
+    snap.width = remoteVideo.videoWidth || 1280;
+    snap.height = remoteVideo.videoHeight || 720;
+    snap.getContext('2d').drawImage(remoteVideo, 0, 0);
+    frozenFrame.src = snap.toDataURL();
+    frozenFrame.style.display = 'block';
+    remoteVideo.style.display = 'none';
+    btn.querySelector('span').textContent = 'Unfreeze';
+
+    // Enable annotation automatically on freeze
+    if (!isDrawing) toggleDraw();
+
+    // Send freeze event to customer
+    sendData({ type: 'freeze', frame: snap.toDataURL() });
+    toast('Frame frozen — annotate freely');
+  } else {
+    frozenFrame.style.display = 'none';
+    remoteVideo.style.display = 'block';
+    btn.querySelector('span').textContent = 'Freeze';
+    clearCanvas();
+    sendData({ type: 'unfreeze' });
+    if (isDrawing) toggleDraw();
+  }
+}
+
+function toggleDraw() {
+  isDrawing = !isDrawing;
+  const canvas = document.getElementById('draw-canvas');
+  const btn = document.getElementById('btn-draw');
+  const sizeWrap = document.getElementById('pen-size-wrap');
+  canvas.classList.toggle('active', isDrawing);
+  btn.classList.toggle('active', isDrawing);
+  sizeWrap.classList.toggle('visible', isDrawing);
+
+  if (isDrawing) resizeCanvas();
+}
+
+function clearCanvas() {
+  const canvas = document.getElementById('draw-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  sendData({ type: 'clear' });
+}
+
+function endCall() {
+  if (activeCall) { activeCall.close(); activeCall = null; }
+  if (activeConn) { activeConn.close(); activeConn = null; }
+  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  if (peer) { peer.destroy(); peer = null; }
+  resetCallUI();
+  toast('Call ended');
+}
+
+function resetCallUI() {
+  stopTimer();
+  document.getElementById('video-container').classList.remove('active');
+  document.getElementById('empty-state').style.display = '';
+  isFrozen = false; isDrawing = false; isMuted = false;
+  const canvas = document.getElementById('draw-canvas');
+  canvas.classList.remove('active');
+  document.getElementById('remote-video').style.display = 'block';
+  document.getElementById('frozen-frame').style.display = 'none';
+}
+
+function hideWaiting() {
+  document.getElementById('waiting-overlay').classList.add('hidden');
+}
+
+// ── Timer ──────────────────────────────────────────────────────
+function startTimer() {
+  timerSeconds = 0;
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    timerSeconds++;
+    const m = String(Math.floor(timerSeconds / 60)).padStart(2, '0');
+    const s = String(timerSeconds % 60).padStart(2, '0');
+    document.getElementById('call-timer').textContent = `${m}:${s}`;
+  }, 1000);
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+  document.getElementById('call-timer').textContent = '00:00';
+}
+
+// ── Canvas drawing ─────────────────────────────────────────────
+function resizeCanvas() {
+  const stage = document.getElementById('video-stage');
+  const canvas = document.getElementById('draw-canvas');
+  canvas.width = stage.clientWidth;
+  canvas.height = stage.clientHeight;
+}
+
+window.addEventListener('resize', () => { if (isDrawing) resizeCanvas(); });
+
+function getPos(e) {
+  const canvas = document.getElementById('draw-canvas');
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const src = e.touches ? e.touches[0] : e;
+  return {
+    x: (src.clientX - rect.left) * scaleX,
+    y: (src.clientY - rect.top) * scaleY
+  };
+}
+
+const drawCanvas = document.getElementById('draw-canvas');
+
+drawCanvas.addEventListener('pointerdown', e => {
+  if (!isDrawing) return;
+  drawing = true;
+  const p = getPos(e);
+  lastX = p.x; lastY = p.y;
+});
+
+drawCanvas.addEventListener('pointermove', e => {
+  if (!drawing || !isDrawing) return;
+  const p = getPos(e);
+  const size = document.getElementById('pen-size').value;
+  drawLine(drawCanvas.getContext('2d'), lastX, lastY, p.x, p.y, SUPPORT_COLOR, size);
+  sendData({ type: 'draw', x1: lastX / drawCanvas.width, y1: lastY / drawCanvas.height, x2: p.x / drawCanvas.width, y2: p.y / drawCanvas.height, color: SUPPORT_COLOR, size });
+  lastX = p.x; lastY = p.y;
+});
+
+drawCanvas.addEventListener('pointerup', () => drawing = false);
+drawCanvas.addEventListener('pointerleave', () => drawing = false);
+
+function drawLine(ctx, x1, y1, x2, y2, color, size) {
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = size;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+}
+
+// ── Data channel ───────────────────────────────────────────────
+function sendData(payload) {
+  if (activeConn && activeConn.open) {
+    try { activeConn.send(JSON.stringify(payload)); } catch(e) {}
+  }
+}
+
+function handleRemoteData(raw) {
+  let msg;
+  try { msg = JSON.parse(raw); } catch(e) { return; }
+  const canvas = document.getElementById('draw-canvas');
+  const ctx = canvas.getContext('2d');
+
+  if (msg.type === 'draw') {
+    if (!canvas.classList.contains('active')) {
+      canvas.classList.add('active');
+      resizeCanvas();
+    }
+    drawLine(ctx, msg.x1 * canvas.width, msg.y1 * canvas.height, msg.x2 * canvas.width, msg.y2 * canvas.height, '#ec4899', msg.size);
+  } else if (msg.type === 'clear') {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  } else if (msg.type === 'freeze') {
+    // Customer side receives freeze — handled in customer.html
+  }
+}
+
+// ── Toast ──────────────────────────────────────────────────────
+function toast(msg, dur = 3000) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), dur);
+}
+</script>
+</body>
+</html>
