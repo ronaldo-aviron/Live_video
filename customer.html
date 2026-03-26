@@ -371,6 +371,9 @@
     <button class="ctrl-btn" id="btn-draw" onclick="toggleDraw()" title="Annotate">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M15.232 5.232l3.536 3.536M9 11l6.586-6.586a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-1.414.586H8v-2.414A2 2 0 019 11z"/><path d="M3 21h18"/></svg>
     </button>
+    <button class="ctrl-btn" id="btn-switch-cam" onclick="switchCamera()" title="Switch camera">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M4 4v5h5M20 20v-5h-5"/><path d="M20.49 9A9 9 0 105.64 5.64L4 4M3.51 15a9 9 0 0014.85 3.36L20 20"/></svg>
+    </button>
   </div>
 </div>
 
@@ -387,6 +390,7 @@ let isDrawing = false;
 let isFrozen = false;
 let drawing = false;
 let lastX = 0, lastY = 0;
+let currentFacingMode = 'environment'; // start with back camera
 const CUSTOMER_COLOR = '#ec4899';
 
 // Get room ID from URL
@@ -406,7 +410,7 @@ async function joinCall() {
 
   // Get local media
   try {
-    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: true });
     document.getElementById('local-video').srcObject = localStream;
   } catch (e) {
     toast('Camera/mic access denied. Please allow access and retry.');
@@ -472,6 +476,64 @@ function toggleMute() {
   isMuted = !isMuted;
   localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
   document.getElementById('btn-mute').classList.toggle('active', isMuted);
+}
+
+async function switchCamera() {
+  if (!localStream) return;
+  const btn = document.getElementById('btn-switch-cam');
+  btn.disabled = true;
+
+  // Toggle facing mode
+  currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+
+  try {
+    // Get new video stream with opposite camera
+    const newStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { exact: currentFacingMode } },
+      audio: false
+    });
+
+    const newVideoTrack = newStream.getVideoTracks()[0];
+
+    // Replace track in the active WebRTC call
+    if (activeCall && activeCall.peerConnection) {
+      const sender = activeCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+      if (sender) await sender.replaceTrack(newVideoTrack);
+    }
+
+    // Stop old video track and swap in new one
+    localStream.getVideoTracks().forEach(t => t.stop());
+    localStream.removeTrack(localStream.getVideoTracks()[0]);
+    localStream.addTrack(newVideoTrack);
+
+    // Update the local preview
+    document.getElementById('local-video').srcObject = localStream;
+
+    toast(currentFacingMode === 'environment' ? 'Switched to back camera' : 'Switched to front camera');
+  } catch (e) {
+    // Some devices don't support exact facingMode — fall back to ideal
+    try {
+      const fallback = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: currentFacingMode } },
+        audio: false
+      });
+      const newVideoTrack = fallback.getVideoTracks()[0];
+      if (activeCall && activeCall.peerConnection) {
+        const sender = activeCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+        if (sender) await sender.replaceTrack(newVideoTrack);
+      }
+      localStream.getVideoTracks().forEach(t => t.stop());
+      localStream.addTrack(newVideoTrack);
+      document.getElementById('local-video').srcObject = localStream;
+      toast(currentFacingMode === 'environment' ? 'Switched to back camera' : 'Switched to front camera');
+    } catch (e2) {
+      // Revert if it truly fails
+      currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+      toast('Could not switch camera');
+    }
+  }
+
+  btn.disabled = false;
 }
 
 

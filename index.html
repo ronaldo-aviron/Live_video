@@ -635,6 +635,11 @@
             <span>Clear</span>
           </button>
 
+          <button class="ctrl-btn" onclick="takeScreenshot()" id="btn-screenshot">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><circle cx="12" cy="13" r="3"/></svg>
+            <span>Screenshot</span>
+          </button>
+
         </div>
 
         <div class="controls-group">
@@ -880,6 +885,49 @@ function clearCanvas() {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   sendData({ type: 'clear' });
+}
+
+function takeScreenshot() {
+  // Compose: video frame + annotation canvas merged into one image
+  const stage = document.getElementById('video-stage');
+  const remoteVideo = document.getElementById('remote-video');
+  const frozenFrame = document.getElementById('frozen-frame');
+  const drawCanvas = document.getElementById('draw-canvas');
+
+  const w = stage.clientWidth;
+  const h = stage.clientHeight;
+
+  const snap = document.createElement('canvas');
+  snap.width = w;
+  snap.height = h;
+  const ctx = snap.getContext('2d');
+
+  // Draw the video (live or frozen)
+  try {
+    if (isFrozen && frozenFrame.src) {
+      ctx.drawImage(frozenFrame, 0, 0, w, h);
+    } else {
+      ctx.drawImage(remoteVideo, 0, 0, w, h);
+    }
+  } catch(e) {}
+
+  // Overlay annotations if canvas has content
+  if (drawCanvas.width > 0) {
+    ctx.drawImage(drawCanvas, 0, 0, w, h);
+  }
+
+  // Trigger download — browser saves the file, Windows Snip is not needed
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const link = document.createElement('a');
+  link.download = `aviron-support-${timestamp}.png`;
+  link.href = snap.toDataURL('image/png');
+  link.click();
+
+  // Flash feedback on button
+  const btn = document.getElementById('btn-screenshot');
+  btn.classList.add('active');
+  setTimeout(() => btn.classList.remove('active'), 800);
+  toast('Screenshot saved');
 }
 
 function endCall() {
